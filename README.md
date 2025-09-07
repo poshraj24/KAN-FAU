@@ -27,7 +27,6 @@ KAN-FAU/
 │
 ├── HPC_Implementation
 │   ├── architecture_analyzer.py
-│   ├── benchmarking_functions.py
 │   ├── classification_plot.py
 │   ├── dataset_analyzer.py
 │   ├── z-score_grn.py
@@ -179,58 +178,6 @@ python HPC_Implementation/z-score_grn.py
   python Perturbation_Experiment/plot_log2foldchange_mean.py
   ```
 
----
-
-## Benchmark Functions
-
-The project tests KANs on the following benchmark functions:
-
-* **Franke 2D**: Classic 2D test function with multiple hills and valleys
-* **Hartmann 3D**: 3D function with several local minima
-* **Ackley 5D**: 5D function with many local minima and a global minimum at the origin
-* **Michalewicz 7D**: 7D function with steep valleys and multiple local minima
-* **Levy 10D**: 10D function with many local minima
-
----
-
-## KAN Configurations
-
-The benchmark tests combinations of:
-
-* **k-order** (2–7): Controls the order of B-splines used in the KAN
-* **Grid size** (3–7): Controls the resolution of the spline grid
-
----
-
-## Output
-
-The benchmark generates:
-
-1. **kan\_scaling\_metrics.csv** — detailed metrics for each configuration
-2. **kan\_scaling\_analysis.png** — visualization showing:
-
-   * Parameter count vs. configuration
-   * Peak memory usage vs. configuration
-
----
-
-## Advanced Configuration
-
-Modify parameters in `KAN_Implementation.py`:
-
-```python
-# Test configurations
-self.k_values = [2, 3, 4, 5, 6, 7]
-self.grid_sizes = [3, 4, 5, 6, 7]
-
-# Training parameters
-self.n_samples = 1000
-self.batch_size = 5048
-self.lr = 0.5
-self.epochs = 50
-```
-
----
 
 ## GPU Acceleration
 
