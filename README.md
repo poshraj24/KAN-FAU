@@ -81,6 +81,49 @@ KAN-FAU/
     └── SC1139_Symbolic/
 ```
 ## Usage
-1. HPC Implementation
 
-Run KAN training and GRN inference
+1. KAN Training
+   Keep all the training data inside HPC_Implementation/KAN_Implementation/Data folder. 
+
+a. Run KAN training and GRN inference- For HPC
+```bash
+sbatch HPC_Implementation/KAN_Implementation/run_kan.sh 
+```
+b. Run KAN training and GRN inference- For Workstation
+```bash
+python HPC_Implementation/KAN_Implementation/main.py
+```
+
+2. GRN Creation
+   Keep the trained folder inside HPC_Implementation/KAN_Implementation
+   ```bash
+    python HPC_Implementation/KAN_Implementation/network_creator.py
+   ```
+3. Symbolic Formula Value Generator
+  Ensure that the trained folder is inside HPC_Implementation/KAN_Implementation
+   ```bash
+    python HPC_Implementation/KAN_Implementation/formula_value_original.py
+   ```
+4. Z-Score Based GRN Maker
+   ```bash
+    python HPC_Implementation/z-score_grn.py
+   ```
+5. Perturbation Experiment
+   a. First create the manually knocked out datasets. Ensure that the actual dataset is inside Data folder ctrl_only_Genename*_zero.h5ad
+   ```bash
+    python Perturbation_Experiment/knockout_creator.py
+   ```
+   b. Now place the actual perturbed data for each TF as a separate file inside Data folder. eg- CREB1_perturbed_only.h5ad and create a csv file for further analysis
+   ```bash
+    python Perturbation_Experiment/actual_vs_perdicted_file_creator.py
+   ```
+   c. To generate the correlation plot, run the following code. Replace *_mean.py with _*overall.py when needed. 
+   ```bash
+    python Perturbation_Experiment/plot_final_KO_mean.py
+   ```
+   d. Log2FC Analysis: To generate log2fc run the following code. Replace *_mean.py with _*overall.py when needed. 
+   ```bash
+    python Perturbation_Experiment/plot_log2foldchange_mean.py
+   ```
+   
+   
