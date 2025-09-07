@@ -1,9 +1,8 @@
-Here’s a cleaned-up and **GitHub-ready README.md markup** with proper formatting, indentation, and no stray `\n` characters. I kept your structure and reorganized the Usage section for readability.
-
-````markdown
 # KAN-FAU
 
 Kolmogorov–Arnold Network (KAN) framework for GRN inference, perturbation experiments, and HPC-based implementation.
+````markdown
+
 
 ---
 
@@ -90,6 +89,17 @@ KAN-FAU/
 ---
 
 ## Usage
+To define KAN Architecture, edit the file `HPC_Implementation/KAN_Implementation/train_with_copies.py` and edit in line 298-308
+```python
+model = KAN(
+            [input_size, 2, 1],
+            grid=4,
+            k=3,
+            seed=63,
+            ckpt_path=model_checkpoint_path,
+        ).to(device)
+```
+
 
 ### 1. KAN Training
 
