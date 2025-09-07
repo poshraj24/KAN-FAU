@@ -1,0 +1,5 @@
+grnboost2_analysis:
+  python: 3.10.16
+  arboreto: 0.1.6
+  pandas: 2.2.3
+  numpy: 1.23.5

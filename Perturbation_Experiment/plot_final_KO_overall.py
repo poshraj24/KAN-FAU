@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+import os
+import json
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from scipy import stats
+import sys
+
+
+def _p_string_from_r(r: float, n: int) -> str:
+    """
+    Calculate p-value from correlation coefficient and format it properly.
+    """
+    print(f"  FALLBACK P-VALUE CALCULATION:")
+    print(f"  r = {r:.6f}, n = {n}")
+
+    if n < 3:
+        print(f"  Insufficient sample size (n < 3)")
+        return "p = N/A"
+
+    # Handle perfect or near-perfect correlations
+    if abs(r) >= 0.99999:
+        print(f"  Near-perfect correlation detected (|r| >= 0.99999)")
+        return "p < 1e-15"
+
+    try:
+        # Use scipy's built-in p-value calculation when possible
+        df = max(1, n - 2)
+        denom = max(1e-15, 1.0 - r * r)
+        t = abs(r) * np.sqrt(df / denom)
+
+        print(f"  df = {df}, denom = {denom:.10f}, t = {t:.6f}")
+
+        # Calculate p-value more precisely for very large t-values
+        if t > 100:
+            # For extremely large t-statistics, estimate using log scale
+            log_p = stats.t.logsf(t, df) + np.log(2)  # two-tailed
+            if log_p < -50:  # log(1e-22) ≈ -50
+                result = "p < 1e-22"
+            else:
+                p_value = np.exp(log_p)
+                result = f"p = {p_value:.0e}"
+            print(f"  Extremely large t-statistic, using log calculation")
+        elif t > 50:
+            result = "p < 1e-15"
+            print(f"  Very large t-statistic (t > 50)")
+        else:
+            p_value = 2 * stats.t.sf(t, df)
+            print(f"  Calculated p-value = {p_value}")
+
+            # Format p-value appropriately
+            if p_value == 0.0 or p_value < 1e-15:
+                result = "p < 1e-15"
+            elif p_value < 1e-10:
+                result = f"p = {p_value:.0e}"
+            elif p_value < 0.001:
+                result = f"p = {p_value:.2e}"
+            else:
+                result = f"p = {p_value:.3f}"
+
+        print(f"  Formatted result: {result}")
+        return result
+
+    except (OverflowError, ZeroDivisionError, ValueError) as e:
+        print(f"  Exception in calculation: {e}")
+        return "p < 1e-15"
+
+
+def _flatten_actual_predicted(csv_file):
+    """
+    Supports:
+      1) per-gene arrays: columns 'actual_values', 'predicted_values' (JSON arrays)
+      2) per-point rows:  columns 'actual_value', 'predicted_value'
+    Returns arrays actual, predicted.
+    """
+    df = pd.read_csv(csv_file)
+    if {"actual_values", "predicted_values"}.issubset(df.columns):
+        xs, ys = [], []
+        for _, row in df.iterrows():
+            a = row["actual_values"]
+            p = row["predicted_values"]
+            if isinstance(a, str):
+                a = json.loads(a)
+            if isinstance(p, str):
+                p = json.loads(p)
+            m = min(len(a), len(p))
+            if m == 0:
+                continue
+            a_arr = np.array(
+                [np.nan if v is None else float(v) for v in a[:m]], dtype=float
+            )
+            p_arr = np.array(
+                [np.nan if v is None else float(v) for v in p[:m]], dtype=float
+            )
+            valid = ~(np.isnan(a_arr) | np.isnan(p_arr))
+            if valid.any():
+                xs.append(a_arr[valid])
+                ys.append(p_arr[valid])
+        if not xs:
+            raise ValueError("No valid per-sample pairs found in JSON arrays.")
+        actual = np.concatenate(xs)
+        predicted = np.concatenate(ys)
+    elif {"actual_value", "predicted_value"}.issubset(df.columns):
+        actual = pd.to_numeric(df["actual_value"], errors="coerce").to_numpy()
+        predicted = pd.to_numeric(df["predicted_value"], errors="coerce").to_numpy()
+        mask = ~(np.isnan(actual) | np.isnan(predicted))
+        actual = actual[mask]
+        predicted = predicted[mask]
+        if actual.size == 0:
+            raise ValueError(
+                "No valid (non-NaN) pairs in 'actual_value'/'predicted_value'."
+            )
+    else:
+        raise ValueError(
+            "CSV must contain either ('actual_values','predicted_values') or ('actual_value','predicted_value')."
+        )
+    return actual, predicted
+
+
+def create_correlation_plot(csv_file, output_file="correlation_plot.png", title=None):
+    actual, predicted = _flatten_actual_predicted(csv_file)
+    n = actual.size
+    if n < 3:
+        raise ValueError("Not enough valid points after cleaning.")
+
+    # Pearson r and p value
+    if np.isclose(np.std(actual, ddof=1), 0) or np.isclose(
+        np.std(predicted, ddof=1), 0
+    ):
+        print(f"\n=== OVERALL DATA POINTS PLOT DEBUG ===")
+        print(f"Dataset: All individual sample points")
+        print(f"Sample size (n): {n}")
+        print(f"Actual std: {np.std(actual, ddof=1):.10f}")
+        print(f"Predicted std: {np.std(predicted, ddof=1):.10f}")
+        print(f"WARNING: One variable has zero or near-zero variance!")
+        print(f"=======================================\n")
+        r_to_show = 0.0
+        p_text = "p = N/A"
+    else:
+        r_to_show, p_scipy = stats.pearsonr(actual, predicted)
+
+        # Debug output
+        print(f"\n=== OVERALL DATA POINTS PLOT DEBUG ===")
+        print(f"Dataset: All individual sample points")
+        print(f"Sample size (n): {n}")
+        print(
+            f"Actual values - min: {actual.min():.3f}, max: {actual.max():.3f}, mean: {actual.mean():.3f}, std: {actual.std():.3f}"
+        )
+        print(
+            f"Predicted values - min: {predicted.min():.3f}, max: {predicted.max():.3f}, mean: {predicted.mean():.3f}, std: {predicted.std():.3f}"
+        )
+        print(f"Correlation coefficient (r): {r_to_show:.6f}")
+        print(f"Scipy p-value: {p_scipy}")
+        print(f"Is scipy p-value NaN?: {np.isnan(p_scipy)}")
+        print(f"Is scipy p-value exactly 0?: {p_scipy == 0.0}")
+        print(f"Is scipy p-value > 1?: {p_scipy > 1.0}")
+
+        # Use scipy's p-value if it's reasonable, otherwise use our robust calculation
+        if np.isnan(p_scipy) or p_scipy == 0.0 or p_scipy > 1.0:
+            print(f"Using fallback p-value calculation")
+            p_text = _p_string_from_r(r_to_show, n)
+        else:
+            print(f"Using scipy p-value")
+            # Format scipy's p-value using the same logic
+            if p_scipy < 1e-15:
+                p_text = "p < 1e-15"
+            elif p_scipy < 1e-10:
+                p_text = f"p = {p_scipy:.0e}"
+            elif p_scipy < 0.001:
+                p_text = f"p = {p_scipy:.2e}"
+            else:
+                p_text = f"p = {p_scipy:.3f}"
+
+        print(f"Final p-value text: {p_text}")
+        print(f"=======================================\n")
+
+    # Regression line
+    slope, intercept, _, _, _ = stats.linregress(actual, predicted)
+
+    vmin = min(np.min(actual), np.min(predicted))
+    vmax = max(np.max(actual), np.max(predicted))
+    pad = (vmax - vmin) * 0.05 if vmax > vmin else 1.0
+    lo, hi = vmin - pad, vmax + pad
+    x_line = np.linspace(lo, hi, 200)
+
+    plt.figure(figsize=(4, 4), dpi=150)
+    plt.scatter(
+        actual,
+        predicted,
+        s=10,
+        alpha=0.7,
+        color="steelblue",
+        edgecolors="white",
+        linewidth=0.5,
+    )
+    plt.plot(x_line, x_line, "k--", linewidth=2, alpha=0.85)
+
+    label_str = (
+        f"Fit: (y={slope:.3f}x+{intercept:.3f})"
+        if intercept >= 0
+        else f"Fit: (y={slope:.3f}x{intercept:.3f})"
+    )
+    plt.plot(
+        x_line,
+        slope * x_line + intercept,
+        color="orange",
+        linewidth=2,
+        alpha=0.9,
+        label=label_str,
+    )
+
+    plt.xlabel("Actual Gene Expression Value", fontsize=12)
+    plt.ylabel("Predicted Gene Expression Value", fontsize=12)
+    if title is None:
+        title = os.path.splitext(os.path.basename(csv_file))[0]
+    plt.title(title, fontsize=12, pad=12)
+
+    plt.xlim(lo, hi)
+    plt.ylim(lo, hi)
+    plt.gca().set_aspect("equal", adjustable="box")
+    plt.grid(True, alpha=0.3, linestyle="-", linewidth=0.5)
+    plt.tick_params(axis="both", labelsize=12)
+
+    txt = f"r = {r_to_show:.3f}\n{p_text}"
+    plt.text(
+        0.05, 0.95, txt, transform=plt.gca().transAxes, ha="left", va="top", fontsize=12
+    )
+
+    plt.legend(fontsize=12, loc="lower right", bbox_to_anchor=(1, -0.03), frameon=False)
+
+    plt.tight_layout()
+    plt.savefig(output_file, dpi=1200, bbox_inches="tight")
+    plt.savefig(output_file.replace(".png", ".pdf"), bbox_inches="tight")
+    plt.show()
+
+
+if __name__ == "__main__":
+    create_correlation_plot(
+        csv_file="ZNF326/perturbation_model_evaluation_test_ZNF326_filtered_overall.csv",
+        output_file="ZNF326/ZNF326_3.png",
+        title="Predicted vs Actual (all samples)",
+    )
