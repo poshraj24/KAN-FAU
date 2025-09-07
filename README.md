@@ -82,7 +82,7 @@ KAN-FAU/
 ```
 ## Usage
 
-1. KAN Training
+1. KAN Training \n
    Keep all the training data inside HPC_Implementation/KAN_Implementation/Data folder. 
 
 a. Run KAN training and GRN inference- For HPC
@@ -94,7 +94,7 @@ b. Run KAN training and GRN inference- For Workstation
 python HPC_Implementation/KAN_Implementation/main.py
 ```
 
-2. GRN Creation
+2. GRN Creation\n
    Keep the trained folder inside HPC_Implementation/KAN_Implementation
    ```bash
     python HPC_Implementation/KAN_Implementation/network_creator.py
@@ -108,7 +108,7 @@ python HPC_Implementation/KAN_Implementation/main.py
    ```bash
     python HPC_Implementation/z-score_grn.py
    ```
-5. Perturbation Experiment
+5. Perturbation Experiment\n
    a. First create the manually knocked out datasets. Ensure that the actual dataset is inside Data folder ctrl_only_Genename*_zero.h5ad
    ```bash
     python Perturbation_Experiment/knockout_creator.py
